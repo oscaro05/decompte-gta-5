@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Décompte GTA VI</title>
+<style>
+  /* Dossier : index.html + fond.jpg + personnages.png + logo.png */
+  :root { --pink:#ff3ea5; --gold:#ffe36b; --dim:#ffd1ec; color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: linear-gradient(#12041f, #2a0a52 40%, #b0307f 75%, #ff9a3e); }
+  body { position: relative; font-family: "Arial Black", Impact, Helvetica, sans-serif; color: #fff; text-align: center; }
+  .abs { position: absolute; }
+  #fond { inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #logo { left: 50%; top: 3%; width: 40%; height: 30%; transform: translateX(-50%); object-fit: contain; filter: drop-shadow(0 0 .6em rgba(0,0,0,.6)); }
+  #titre { display: none; left: 0; right: 0; top: 3%; font-size: 14em; line-height: 1; color: var(--gold); text-shadow: 0 0 .15em var(--pink); }
+  .hero { display: none; bottom: 0; height: 82%; background-repeat: no-repeat; filter: drop-shadow(0 0 1em rgba(0,0,0,.6)); }
+  #heroL { left: 2%; } #heroR { right: 2%; }
+  .row { left: 0; right: 0; top: 50%; transform: translateY(-50%); display: flex; justify-content: center; gap: 1.5em; }
+  .box { width: 11em; padding: .8em .3em; background: rgba(8,2,16,.72); border: .18em solid var(--pink); border-radius: 1em; box-shadow: 0 0 1.2em rgba(255,62,165,.55); }
+  .num { font-size: 5.5em; line-height: 1; font-variant-numeric: tabular-nums; text-shadow: 0 0 .3em var(--pink); }
+  .num.tick { animation: pop .4s ease-out; }
+  @keyframes pop { from { transform: scale(1.12); color: var(--gold); } to { transform: scale(1); } }
+  .lbl { font-family: Arial, sans-serif; font-size: 1.5em; letter-spacing: .2em; color: var(--dim); margin-top: .5em; }
+  .info { left: 25%; right: 25%; top: 72%; font-size: 2.2em; letter-spacing: .08em; color: #fff; text-shadow: 0 0 .4em #000, 0 0 .8em var(--pink); transition: opacity .6s; }
+  .done { display: none; left: 0; right: 0; top: 50%; transform: translateY(-50%); font-size: 9em; color: var(--gold); text-shadow: 0 0 .4em var(--pink); }
+  #logo { transition: top 2s ease, height 2s ease; }
+  #titre { transition: font-size 2s ease, top 2s ease; }
+  .hero { transition: opacity 1.2s ease, transform 1.2s ease; }
+  #fw { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  body.finale #logo { top: 8%; height: 66%; }
+  body.finale #titre { top: 12%; font-size: 28em; }
+  body.finale #heroR { opacity: 0; }
+  body.finale #heroL { opacity: 0; transform: translateX(-25%); }
+  body.finale #heroL.in { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+  <img id="fond" class="abs" src="fond.jpg" alt="" onerror="this.remove()">
+  <img id="logo" class="abs" src="logo.png" alt="" onerror="this.remove();document.getElementById('titre').style.display='block'">
+  <h1 id="titre" class="abs">GTA VI</h1>
+  <div id="heroL" class="abs hero"></div>
+  <div id="heroR" class="abs hero"></div>
+  <canvas id="fw"></canvas>
+
+  <div class="abs row" id="row">
+    <div class="box"><div class="num" id="d">00</div><div class="lbl">JOURS</div></div>
+    <div class="box"><div class="num" id="h">00</div><div class="lbl">HEURES</div></div>
+    <div class="box"><div class="num" id="m">00</div><div class="lbl">MIN</div></div>
+    <div class="box"><div class="num" id="s">00</div><div class="lbl">SEC</div></div>
+  </div>
+  <div class="abs info" id="info"></div>
+  <div class="abs done" id="done">C’EST SORTI !</div>
+
+<script>
+  // Réglage : où couper l'image des personnages (0.47 = 47 % depuis la gauche).
+  // Si le découpage coupe mal, change juste ce nombre (entre 0.40 et 0.55).
+  var SPLIT = 0.47;
+
+  // Messages qui défilent sous le décompte : modifie-les comme tu veux.
+  var INFOS = [
+    "SORTIE LE 19 NOVEMBRE 2026",
+    "DIRECTION VICE CITY",
+    "LE COMPTE À REBOURS A COMMENCÉ"
+  ];
+
+  function fit() { document.body.style.fontSize = Math.min(innerWidth / 100, innerHeight / 56.25) + "px"; }
+  fit(); addEventListener("resize", fit);
+
+  // Personnages : gauche = personnages.png en entier ; droite = droite.png
+  var L = document.getElementById("heroL"), R = document.getElementById("heroR");
+  var hasD = false;
+  function crop(el, f, pos, w, h) {
+    el.style.backgroundImage = "url(personnages.png)";
+    el.style.backgroundSize = (100 / f) + "% 100%";
+    el.style.backgroundPosition = pos;
+    el.style.aspectRatio = (w * f) + " / " + h;
+    el.style.display = "block";
+  }
+  function loadLeft() {
+    var img = new Image();
+    img.onload = function () {
+      var w = img.naturalWidth, h = img.naturalHeight;
+      crop(L, 1, "0% 0%", w, h);
+      L.style.height = "62%";
+      L.style.left = "-1%";
+    };
+    img.src = "personnages.png";
+  }
+  var imgD = new Image();
+  imgD.onload = function () {
+    hasD = true;
+    R.style.backgroundImage = "url(droite.png)";
+    R.style.backgroundSize = "100% 100%";
+    R.style.height = "66%";
+    R.style.right = "-3%";
+    R.style.aspectRatio = imgD.naturalWidth + " / " + imgD.naturalHeight;
+    R.style.display = "block";
+    loadLeft();
+  };
+  imgD.onerror = loadLeft;
+  imgD.src = "droite.png";
+
+  // Textes qui défilent
+  var info = document.getElementById("info"), k = 0;
+  function nextInfo() {
+    info.style.opacity = 0;
+    setTimeout(function () { info.textContent = INFOS[k++ % INFOS.length]; info.style.opacity = 1; }, 600);
+  }
+  nextInfo(); setInterval(nextInfo, 4500);
+
+  // Décompte : 19 novembre 2026 à minuit (heure de l'écran)
+  var target = new Date(2026, 10, 19, 0, 0, 0).getTime();
+  if (location.hash === "#test") target = Date.now() + 6000; // test : ouvre index.html#test
+  // Feux d'artifice
+  var cv = document.getElementById("fw"), cx = cv.getContext("2d"), parts = [], fwOn = false;
+  function sizeCv() { cv.width = innerWidth; cv.height = innerHeight; }
+  sizeCv(); addEventListener("resize", sizeCv);
+  function burst() {
+    var x = cv.width * (0.1 + Math.random() * 0.8), y = cv.height * (0.1 + Math.random() * 0.5), hue = Math.random() * 360;
+    for (var i = 0; i < 70; i++) {
+      var a = Math.random() * 6.283, v = 1 + Math.random() * 4;
+      parts.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, h: hue + Math.random() * 40 });
+    }
+  }
+  function loop() {
+    cx.clearRect(0, 0, cv.width, cv.height);
+    parts = parts.filter(function (q) { return q.life > 0; });
+    parts.forEach(function (q) {
+      q.x += q.vx; q.y += q.vy; q.vy += 0.04; q.vx *= 0.99; q.life -= 0.012;
+      cx.fillStyle = "hsla(" + q.h + ",100%,60%," + q.life + ")";
+      cx.beginPath(); cx.arc(q.x, q.y, 2.4, 0, 6.283); cx.fill();
+    });
+    requestAnimationFrame(loop);
+  }
+  loop();
+  setInterval(function () { if (fwOn) burst(); }, 700);
+
+  // Final : zoom sur le logo, puis feux d'artifice, puis les personnages de gauche
+  var finaleDone = false;
+  function finale() {
+    if (finaleDone) return;
+    finaleDone = true;
+    document.body.classList.add("finale");
+    document.getElementById("row").style.display = "none";
+    info.style.display = "none";
+    setTimeout(function () { fwOn = true; burst(); burst(); }, 2500);
+    setTimeout(function () { fwOn = false; parts = []; document.getElementById("heroL").classList.add("in"); }, 5500);
+  }
+
+  function p(n) { return String(n).padStart(2, "0"); }
+  function set(id, v) { var e = document.getElementById(id); if (e.textContent !== v) { e.textContent = v; e.classList.remove("tick"); void e.offsetWidth; e.classList.add("tick"); } }
+  function tick() {
+    var diff = target - Date.now();
+    if (diff <= 0) { finale(); return; }
+    var s = Math.floor(diff / 1000);
+    set("d", p(Math.floor(s / 86400))); set("h", p(Math.floor(s % 86400 / 3600)));
+    set("m", p(Math.floor(s % 3600 / 60))); set("s", p(s % 60));
+  }
+  tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>
